@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>韓文單字學習卡 (全平台通用版 - 防出貓)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 3D 翻轉卡片效果 CSS */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .transition-transform-700 { transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1); }
+        
+        /* 隱藏原生捲軸但保持可捲動 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 md:py-12 px-4 text-gray-800">
+
+    <header class="w-full max-w-3xl flex flex-col md:flex-row justify-between items-center bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 md:mb-8 gap-3 md:gap-4 transition-all">
+        <h1 class="text-xl md:text-2xl font-bold text-indigo-600 flex items-center gap-2 w-full md:w-auto justify-center md:justify-start">
+            <i class="fa-solid fa-layer-group"></i> 單字學習卡 
+            <span class="text-[10px] md:text-xs bg-indigo-100 text-indigo-600 px-2 md:px-3 py-1 rounded-full ml-1 whitespace-nowrap">自動存檔中</span>
+        </h1>
+        <div class="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+            <button id="modeToggleBtn" onclick="toggleMode()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none flex text-sm md:text-base">
+                <i class="fa-solid fa-keyboard"></i> <span id="modeToggleText" class="hidden sm:inline">拼寫模式</span><span class="sm:hidden">拼寫</span>
+            </button>
+            
+            <button id="shuffleBtn" onclick="shuffleCards()" class="hidden bg-purple-50 hover:bg-purple-100 text-purple-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none text-sm md:text-base">
+                <i class="fa-solid fa-shuffle"></i> <span class="hidden sm:inline">打亂</span>
+            </button>
+            
+            <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileUpload(event)">
+            <label for="csvFileInput" class="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm m-0 text-sm md:text-base">
+                <i class="fa-solid fa-file-arrow-up"></i> <span class="hidden sm:inline">匯入 CSV</span><span class="sm:hidden">匯入</span>
+            </label>
+
+            <button id="clearDataBtn" onclick="clearData()" class="hidden bg-red-50 hover:bg-red-100 text-red-500 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none text-sm md:text-base ml-auto md:ml-0">
+                <i class="fa-solid fa-trash-can"></i> <span class="hidden sm:inline">清空資料</span><span class="sm:hidden">清空</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="emptyState" class="flex flex-col items-center justify-center flex-1 text-gray-400 gap-4 mt-10 md:mt-20 w-full max-w-3xl">
+        <i class="fa-solid fa-box-open text-6xl md:text-8xl text-gray-300"></i>
+        <p class="text-center px-4 md:text-lg">請點擊上方按鈕匯入您的單字 CSV 檔案<br><span class="text-xs md:text-sm text-gray-300">系統會自動為您儲存學習進度 (支援斷點續傳)</span></p>
+        
+        <div class="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full max-w-md">
+            <h3 class="text-indigo-600 font-bold mb-3"><i class="fa-solid fa-lightbulb mr-2"></i>操作秘笈</h3>
+            <ul class="text-sm text-gray-600 space-y-2">
+                <li>👉 點擊卡片或按 <kbd class="bg-gray-100 px-1 rounded">Space</kbd> 翻轉</li>
+                <li>🔊 點擊喇叭或按 <kbd class="bg-gray-100 px-1 rounded">Enter</kbd> 朗讀</li>
+                <li>🧠 翻到背面後可用數字鍵 <kbd class="bg-gray-100 px-1 rounded">1</kbd> <kbd class="bg-gray-100 px-1 rounded">2</kbd> <kbd class="bg-gray-100 px-1 rounded">3</kbd> <kbd class="bg-gray-100 px-1 rounded">4</kbd> 快速評分</li>
+            </ul>
+        </div>
+    </div>
+
+    <main id="flashcardArea" class="w-full max-w-3xl hidden flex-col items-center w-full">
+        
+        <div class="w-full mb-4 md:mb-8 bg-white p-3 md:p-5 rounded-xl md:rounded-2xl shadow-sm border border-gray-100 transition-all">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-3 md:mb-4 gap-2 text-sm md:text-base font-medium">
+                <span class="text-gray-700 font-bold bg-gray-100 px-3 py-1 rounded-md text-xs md:text-sm">
+                    剩餘卡片: <span id="progressText" class="text-indigo-600">0 / 0</span>
+                </span>
+                <div class="flex flex-wrap justify-center gap-2 text-[10px] md:text-xs">
+                    <span class="text-red-500 bg-red-50 px-2 py-1 md:px-3 md:py-1.5 rounded">Again: <span id="statAgain">0</span></span>
+                    <span class="text-orange-500 bg-orange-50 px-2 py-1 md:px-3 md:py-1.5 rounded">Hard: <span id="statHard">0</span></span>
+                    <span class="text-green-500 bg-green-50 px-2 py-1 md:px-3 md:py-1.5 rounded">Good: <span id="statGood">0</span></span>
+                    <span class="text-blue-500 bg-blue-50 px-2 py-1 md:px-3 md:py-1.5 rounded">Easy: <span id="statEasy">0</span></span>
+                </div>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2 md:h-3 overflow-hidden shadow-inner">
+                <div id="progressBar" class="bg-indigo-500 h-2 md:h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="w-full h-[55vh] min-h-[380px] max-h-[500px] md:h-[550px] md:max-h-none perspective-1000 cursor-pointer" onclick="toggleCard()">
+            <div id="cardInner" class="relative w-full h-full transform-style-3d transition-transform-700 shadow-xl rounded-2xl md:rounded-[2rem]">
+                
+                <div class="absolute w-full h-full backface-hidden bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col items-center justify-center p-6 md:p-12">
+                    
+                    <div id="recognitionUI" class="flex flex-col items-center gap-6 md:gap-10 w-full">
+                        <div class="flex flex-col sm:flex-row items-center gap-4 md:gap-8">
+                            <h2 id="cardFrontText" class="text-5xl md:text-7xl lg:text-8xl font-bold text-gray-800 tracking-wide text-center">單字</h2>
+                            <button onclick="speakCurrent(event, 'front')" class="w-12 h-12 md:w-16 md:h-16 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all text-xl md:text-3xl focus:outline-none shadow-sm hover:shadow-lg hover:scale-110" title="朗讀單字 (Enter)">
+                                <i class="fa-solid fa-volume-high"></i>
+                            </button>
+                        </div>
+                        <p class="text-gray-300 text-xs md:text-base mt-6 md:mt-12"><i class="fa-solid fa-hand-pointer mr-1"></i> 點擊卡片或按空白鍵翻轉</p>
+                    </div>
+
+                    <div id="spellingUI" class="flex flex-col items-center gap-4 md:gap-8 w-full hidden" onclick="event.stopPropagation()">
+                        <div class="text-center mb-2 md:mb-6">
+                            <span class="text-xs md:text-sm font-bold text-indigo-400 bg-indigo-50 px-3 md:px-4 py-1 md:py-1.5 rounded-full mb-2 md:mb-4 inline-block shadow-inner">請拼寫出韓文</span>
+                            <h3 id="spellMeaning" class="text-xl md:text-3xl lg:text-4xl font-bold text-gray-700 mt-2 px-2 text-center">中文意思</h3>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 md:gap-4 w-full justify-center px-4">
+                            <input type="text" id="spellInput" autocomplete="off" placeholder="輸入韓文..." class="text-center text-3xl md:text-5xl font-bold text-gray-800 border-b-4 border-gray-200 focus:border-indigo-500 bg-transparent outline-none pb-2 w-full max-w-[200px] md:max-w-[400px] transition-colors">
+                            <button onclick="speakCurrent(event, 'front')" class="w-10 h-10 md:w-14 md:h-14 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all text-lg md:text-2xl focus:outline-none flex-shrink-0 hover:scale-110 shadow-sm" title="聽發音提示">
+                                <i class="fa-solid fa-headphones"></i>
+                            </button>
+                        </div>
+                        
+                        <p id="spellFeedback" class="text-sm md:text-lg font-bold h-5 md:h-8 opacity-0 transition-opacity mt-1 md:mt-2">預留空間</p>
+                        
+                        <button onclick="checkSpelling(event)" class="mt-2 md:mt-4 px-6 md:px-10 py-2 md:py-4 bg-indigo-600 text-white font-bold rounded-xl md:rounded-2xl hover:bg-indigo-700 transition-all shadow-sm md:shadow-md hover:shadow-lg flex items-center gap-2 text-sm md:text-lg">
+                            檢查答案 <kbd class="hidden sm:inline bg-white/20 px-1.5 md:px-2 py-0.5 rounded text-xs md:text-sm">Enter</kbd>
+                        </button>
+                    </div>
+
+                </div>
+
+                <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col p-4 md:p-8 cursor-default" onclick="event.stopPropagation()">
+                    
+                    <div id="cardBackContent" class="flex-1 overflow-y-auto no-scrollbar text-base md:text-xl pb-4 md:pb-6">
+                        </div>
+
+                    <div class="mt-auto pt-3 md:pt-6 border-t border-gray-100 flex gap-1.5 md:gap-4 justify-between shrink-0">
+                        <button onclick="handleSRS('again', event)" class="group flex-1 py-2 md:py-4 bg-red-50 text-red-600 rounded-lg md:rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm hover:shadow-md text-[11px] md:text-lg font-bold flex flex-col items-center justify-center gap-0.5 md:gap-2 relative overflow-hidden">
+                            <span>Again <span class="hidden md:inline font-normal opacity-50 ml-1">(1)</span></span>
+                            <span class="text-[9px] md:text-xs font-normal opacity-80 leading-tight">馬上再見</span>
+                        </button>
+                        <button onclick="handleSRS('hard', event)" class="group flex-1 py-2 md:py-4 bg-orange-50 text-orange-600 rounded-lg md:rounded-2xl hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md text-[11px] md:text-lg font-bold flex flex-col items-center justify-center gap-0.5 md:gap-2">
+                            <span>Hard <span class="hidden md:inline font-normal opacity-50 ml-1">(2)</span></span>
+                            <span class="text-[9px] md:text-xs font-normal opacity-80 leading-tight">放中間</span>
+                        </button>
+                        <button onclick="handleSRS('good', event)" class="group flex-1 py-2 md:py-4 bg-green-50 text-green-600 rounded-lg md:rounded-2xl hover:bg-green-500 hover:text-white transition-all shadow-sm hover:shadow-md text-[11px] md:text-lg font-bold flex flex-col items-center justify-center gap-0.5 md:gap-2">
+                            <span>Good <span class="hidden md:inline font-normal opacity-50 ml-1">(3)</span></span>
+                            <span class="text-[9px] md:text-xs font-normal opacity-80 leading-tight">放最後</span>
+                        </button>
+                        <button onclick="handleSRS('easy', event)" class="group flex-1 py-2 md:py-4 bg-blue-50 text-blue-600 rounded-lg md:rounded-2xl hover:bg-blue-500 hover:text-white transition-all shadow-sm hover:shadow-md text-[11px] md:text-lg font-bold flex flex-col items-center justify-center gap-0.5 md:gap-2">
+                            <span>Easy <span class="hidden md:inline font-normal opacity-50 ml-1">(4)</span></span>
+                            <span class="text-[9px] md:text-xs font-normal opacity-80 leading-tight">完成移除</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="completionScreen" class="hidden w-full max-w-2xl flex-col items-center justify-center bg-white p-8 md:p-16 rounded-2xl md:rounded-[2rem] shadow-xl border border-gray-100 mt-6 md:mt-10 text-center relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-2 md:h-3 bg-gradient-to-r from-indigo-400 to-purple-500"></div>
+        <i class="fa-solid fa-ranking-star text-6xl md:text-8xl text-yellow-400 mb-6 md:mb-8 drop-shadow-md"></i>
+        <h2 class="text-2xl md:text-4xl font-bold text-gray-800 mb-3 md:mb-4">完成練習！</h2>
+        <p class="text-sm md:text-lg text-gray-500 mb-8 md:mb-12">太棒了，你已經征服了這批所有的單字卡！</p>
+        
+        <div class="grid grid-cols-4 gap-2 md:gap-6 w-full mb-8 md:mb-12 max-w-md md:max-w-lg">
+            <div class="bg-red-50 rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm hover:scale-105 transition-transform"><div class="text-red-500 font-bold text-xl md:text-3xl" id="finalAgain">0</div><div class="text-gray-500 text-[10px] md:text-sm mt-1 md:mt-2 font-medium">Again</div></div>
+            <div class="bg-orange-50 rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm hover:scale-105 transition-transform"><div class="text-orange-500 font-bold text-xl md:text-3xl" id="finalHard">0</div><div class="text-gray-500 text-[10px] md:text-sm mt-1 md:mt-2 font-medium">Hard</div></div>
+            <div class="bg-green-50 rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm hover:scale-105 transition-transform"><div class="text-green-500 font-bold text-xl md:text-3xl" id="finalGood">0</div><div class="text-gray-500 text-[10px] md:text-sm mt-1 md:mt-2 font-medium">Good</div></div>
+            <div class="bg-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm hover:scale-105 transition-transform"><div class="text-blue-500 font-bold text-xl md:text-3xl" id="finalEasy">0</div><div class="text-gray-500 text-[10px] md:text-sm mt-1 md:mt-2 font-medium">Easy</div></div>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3 md:gap-5 w-full max-w-xs md:max-w-lg justify-center">
+             <button onclick="startReview()" class="px-6 md:px-8 py-3 md:py-4 bg-indigo-600 text-white rounded-xl md:rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex-1 flex justify-center items-center gap-2 text-sm md:text-lg">
+                <i class="fa-solid fa-rotate-right"></i> 重新開始
+            </button>
+            <button onclick="clearData()" class="px-6 md:px-8 py-3 md:py-4 bg-red-50 text-red-600 rounded-xl md:rounded-2xl font-bold hover:bg-red-100 transition-all flex-1 flex justify-center items-center gap-2 text-sm md:text-lg">
+                <i class="fa-solid fa-trash-can"></i> 清除資料
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let originalCards = []; 
+        let reviewQueue = [];   
+        let isFlipped = false;
+        let isSpellingMode = false; 
+        let currentBackAudioText = ""; 
+        const synth = window.speechSynthesis;
+        let stats = { again: 0, hard: 0, good: 0, easy: 0 };
+
+        const STORAGE_KEY = 'koreanFlashcardData';
+
+        window.addEventListener('DOMContentLoaded', loadState);
+
+        // --- 存檔系統 ---
+        function saveState() {
+            const state = {
+                originalCards,
+                reviewQueue,
+                stats,
+                isSpellingMode
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function loadState() {
+            const savedState = localStorage.getItem(STORAGE_KEY);
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    if (state.originalCards && state.originalCards.length > 0) {
+                        originalCards = state.originalCards;
+                        reviewQueue = state.reviewQueue || [];
+                        stats = state.stats || { again: 0, hard: 0, good: 0, easy: 0 };
+                        isSpellingMode = state.isSpellingMode || false;
+
+                        // UI 更新
+                        document.getElementById('emptyState').classList.add('hidden');
+                        document.getElementById('shuffleBtn').classList.remove('hidden');
+                        document.getElementById('shuffleBtn').classList.add('flex');
+                        document.getElementById('clearDataBtn').classList.remove('hidden');
+                        document.getElementById('clearDataBtn').classList.add('flex');
+                        
+                        updateModeToggleUI();
+
+                        if (reviewQueue.length === 0 && originalCards.length > 0) {
+                            showCompletionScreen();
+                        } else {
+                            document.getElementById('flashcardArea').classList.remove('hidden');
+                            document.getElementById('flashcardArea').classList.add('flex');
+                            updateCard();
+                        }
+                    }
+                } catch (e) {
+                    console.error('讀取存檔失敗', e);
+                }
+            }
+        }
+
+        function clearData() {
+            if (confirm("⚠️ 警告：確定要清空所有單字同埋學習紀錄嗎？\n這會將 App 還原至初始狀態。")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload(); 
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (reviewQueue.length === 0) return; 
+            
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (isSpellingMode && !isFlipped) {
+                    checkSpelling();
+                } else {
+                    speakCurrent(e, isFlipped ? 'back' : 'front');
+                }
+            } else if (e.key === ' ' || e.code === 'Space') {
+                if (document.activeElement === document.getElementById('spellInput')) return;
+                e.preventDefault();
+                if (!isFlipped) toggleCard(); 
+            } else if (isFlipped) {
+                if (e.key === '1') handleSRS('again');
+                if (e.key === '2') handleSRS('hard');
+                if (e.key === '3') handleSRS('good');
+                if (e.key === '4') handleSRS('easy');
+            }
+        });
+
+        function toggleMode() {
+            isSpellingMode = !isSpellingMode;
+            updateModeToggleUI();
+            saveState(); 
+
+            if (!isFlipped && reviewQueue.length > 0) {
+                updateCard();
+            }
+        }
+
+        function updateModeToggleUI() {
+            const btnText = document.getElementById('modeToggleText');
+            const btnIcon = document.querySelector('#modeToggleBtn i');
+            const btn = document.getElementById('modeToggleBtn');
+            
+            if (isSpellingMode) {
+                btnText.innerHTML = '<span class="hidden sm:inline">認字模式</span><span class="sm:hidden">認字</span>';
+                btnIcon.className = 'fa-solid fa-eye';
+                btn.className = "bg-emerald-50 hover:bg-emerald-100 text-emerald-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none flex text-sm md:text-base";
+            } else {
+                btnText.innerHTML = '<span class="hidden sm:inline">拼寫模式</span><span class="sm:hidden">拼寫</span>';
+                btnIcon.className = 'fa-solid fa-keyboard';
+                btn.className = "bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none flex text-sm md:text-base";
+            }
+        }
+
+        function checkSpelling(event) {
+            if (event) event.stopPropagation();
+            if (reviewQueue.length === 0 || isFlipped) return;
+
+            const inputEl = document.getElementById('spellInput');
+            const feedbackEl = document.getElementById('spellFeedback');
+            const userAnswer = inputEl.value.trim();
+            const correctAnswer = reviewQueue[0].word;
+
+            feedbackEl.classList.remove('opacity-0');
+
+            if (userAnswer === correctAnswer) {
+                feedbackEl.innerText = "✅ 拼寫正確！";
+                feedbackEl.className = "text-sm md:text-lg font-bold h-5 md:h-8 text-green-500 mt-1 md:mt-2";
+                inputEl.classList.add("text-green-500", "border-green-500");
+                inputEl.classList.remove("text-gray-800", "border-gray-200", "focus:border-indigo-500");
+                
+                inputEl.blur();
+                setTimeout(() => toggleCard(), 600);
+            } else {
+                feedbackEl.innerText = `❌ 錯誤，答案：${correctAnswer}`;
+                feedbackEl.className = "text-sm md:text-lg font-bold h-5 md:h-8 text-red-500 mt-1 md:mt-2";
+                inputEl.classList.add("text-red-500", "border-red-500");
+                inputEl.classList.remove("text-gray-800", "border-gray-200", "focus:border-indigo-500");
+                
+                inputEl.blur();
+                setTimeout(() => toggleCard(), 1500); 
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSVAndInitialize(text);
+                event.target.value = ''; 
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVAndInitialize(text) {
+            const result = [];
+            let row = [];
+            let inQuotes = false;
+            let currentStr = "";
+            
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    row.push(currentStr.trim());
+                    currentStr = "";
+                } else if (char === '\n' && !inQuotes) {
+                    row.push(currentStr.trim());
+                    if (row.length >= 2 && row[0] !== "") result.push(row);
+                    row = [];
+                    currentStr = "";
+                } else {
+                    currentStr += char;
+                }
+            }
+            if (currentStr) row.push(currentStr.trim());
+            if (row.length >= 2 && row[0] !== "") result.push(row);
+
+            const newCards = result.map(item => ({
+                word: item[0].replace(/^"|"$/g, ''),
+                details: item[1].replace(/^"|"$/g, '')
+            }));
+
+            if (newCards.length > 0) {
+                if (originalCards.length > 0) {
+                    originalCards = [...originalCards, ...newCards];
+                    reviewQueue = [...reviewQueue, ...newCards];
+                    alert(`✅ 成功追加 ${newCards.length} 個新單字！\n目前待複習總數變為 ${reviewQueue.length} 個。`);
+                    saveState(); 
+                    updateCard();
+                } else {
+                    originalCards = newCards;
+                    
+                    document.getElementById('emptyState').classList.add('hidden');
+                    document.getElementById('shuffleBtn').classList.remove('hidden');
+                    document.getElementById('shuffleBtn').classList.add('flex');
+                    document.getElementById('clearDataBtn').classList.remove('hidden');
+                    document.getElementById('clearDataBtn').classList.add('flex');
+                    
+                    startReview(); 
+                }
+            } else {
+                alert("無法解析檔案內容，請確認是否為正確的 CSV 格式。");
+            }
+        }
+
+        function shuffleCards() {
+            if (reviewQueue.length <= 1) return;
+            for (let i = reviewQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [reviewQueue[i], reviewQueue[j]] = [reviewQueue[j], reviewQueue[i]];
+            }
+            
+            saveState(); 
+
+            if (isFlipped) {
+                isFlipped = false;
+                document.getElementById('cardInner').classList.remove('rotate-y-180');
+                setTimeout(() => { updateCard(); }, 300);
+            } else {
+                updateCard();
+            }
+        }
+
+        function startReview() {
+            reviewQueue = [...originalCards]; 
+            stats = { again: 0, hard: 0, good: 0, easy: 0 };
+            isFlipped = false;
+            document.getElementById('cardInner').classList.remove('rotate-y-180');
+
+            document.getElementById('completionScreen').classList.add('hidden');
+            document.getElementById('completionScreen').classList.remove('flex');
+            document.getElementById('flashcardArea').classList.remove('hidden');
+            document.getElementById('flashcardArea').classList.add('flex');
+
+            saveState(); 
+            updateCard();
+        }
+
+        function handleSRS(action, event) {
+            if (event) event.stopPropagation();
+            if (!isFlipped) return; 
+
+            stats[action]++;
+            const currentCard = reviewQueue.shift(); 
+
+            if (action === 'again') {
+                if (reviewQueue.length > 0) {
+                    reviewQueue.splice(1, 0, currentCard);
+                } else {
+                    reviewQueue.push(currentCard); 
+                }
+            } else if (action === 'hard') {
+                const mid = Math.floor(reviewQueue.length / 2);
+                reviewQueue.splice(mid, 0, currentCard);
+            } else if (action === 'good') {
+                reviewQueue.push(currentCard);
+            } 
+
+            saveState(); 
+
+            isFlipped = false;
+            document.getElementById('cardInner').classList.remove('rotate-y-180');
+            
+            setTimeout(() => {
+                updateCard();
+            }, 300); 
+        }
+
+        function extractKorean(text) {
+            return text.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
+        }
+
+        function updateCard() {
+            const total = originalCards.length;
+            const remaining = reviewQueue.length;
+
+            document.getElementById('progressText').innerText = `${remaining} / ${total}`;
+            document.getElementById('statAgain').innerText = stats.again;
+            document.getElementById('statHard').innerText = stats.hard;
+            document.getElementById('statGood').innerText = stats.good;
+            document.getElementById('statEasy').innerText = stats.easy;
+
+            const progressPercent = ((total - remaining) / total) * 100;
+            document.getElementById('progressBar').style.width = `${progressPercent}%`;
+
+            if (remaining === 0) {
+                showCompletionScreen();
+                return;
+            }
+
+            const card = reviewQueue[0];
+            
+            if (isSpellingMode) {
+                document.getElementById('recognitionUI').classList.add('hidden');
+                document.getElementById('spellingUI').classList.remove('hidden');
+                document.getElementById('spellingUI').classList.add('flex');
+                
+                let firstLine = card.details.split(/\r?\n/)[0].trim();
+                
+                // 【防出貓機制】將個正確答案由提示度抽走！
+                // 例如：原本係 "사진 (n.) 照片"，抽走 "사진" 之後就會變成 "(n.) 照片"
+                let safeHint = firstLine.replace(card.word, '').trim();
+                
+                document.getElementById('spellMeaning').innerText = safeHint;
+                
+                const inputEl = document.getElementById('spellInput');
+                inputEl.value = '';
+                inputEl.className = "text-center text-3xl md:text-5xl font-bold text-gray-800 border-b-4 border-gray-200 focus:border-indigo-500 bg-transparent outline-none pb-2 w-full max-w-[200px] md:max-w-[400px] transition-colors";
+                
+                const feedbackEl = document.getElementById('spellFeedback');
+                feedbackEl.innerText = '預留空間';
+                feedbackEl.className = "text-sm md:text-lg font-bold h-5 md:h-8 opacity-0 transition-opacity mt-1 md:mt-2";
+                
+                if(window.innerWidth > 768) {
+                    setTimeout(() => { if(!isFlipped) inputEl.focus(); }, 300);
+                } else {
+                    inputEl.blur();
+                }
+            } else {
+                document.getElementById('spellingUI').classList.add('hidden');
+                document.getElementById('spellingUI').classList.remove('flex');
+                document.getElementById('recognitionUI').classList.remove('hidden');
+                document.getElementById('recognitionUI').classList.add('flex');
+                document.getElementById('cardFrontText').innerText = card.word;
+            }
+
+            // 卡片背面內容
+            const lines = card.details.split(/\r?\n/);
+            
+            let backHtml = `
+                <div class="border-b-2 border-indigo-50 pb-2 md:pb-4 mb-2 md:mb-4 flex items-center justify-between sticky top-0 bg-white z-10 pt-1 md:pt-2">
+                    <h2 class="text-2xl md:text-4xl font-bold text-indigo-600">${card.word}</h2>
+                    <button onclick="speakCurrent(event, 'front')" class="w-8 h-8 md:w-12 md:h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all text-base md:text-xl focus:outline-none hover:scale-110" title="朗讀單字">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
+                <div class="space-y-1 md:space-y-3">
+            `;
+            
+            currentBackAudioText = ""; 
+            let isExampleSection = false;
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                if (trimmedLine.startsWith('【')) {
+                    backHtml += `<h3 class="text-[13px] md:text-base font-bold text-indigo-500 mt-3 md:mt-6 mb-1 md:mb-3">${trimmedLine}</h3>`;
+                    isExampleSection = trimmedLine.includes('例句') || trimmedLine.includes('搭配詞');
+                } else {
+                    if (/[가-힣]/.test(trimmedLine)) {
+                        const koTextForAudio = extractKorean(trimmedLine);
+                        
+                        if (isExampleSection && !currentBackAudioText) {
+                            currentBackAudioText = koTextForAudio;
+                        } else if (!currentBackAudioText && !trimmedLine.includes('敬語') && !trimmedLine.includes('半語')) {
+                            currentBackAudioText = koTextForAudio;
+                        }
+
+                        backHtml += `
+                            <div class="flex items-start justify-between my-1 md:my-3 p-2 md:p-4 bg-gray-50 rounded-lg md:rounded-2xl group hover:bg-indigo-50/50 transition-colors">
+                                <span class="text-gray-700 font-medium text-sm md:text-xl">${trimmedLine}</span>
+                                <button onclick="speakSpecific(event, '${koTextForAudio.replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-indigo-600 focus:outline-none ml-2 md:ml-6 mt-0.5 md:mt-1 shrink-0 transition-transform hover:scale-110" title="朗讀此句">
+                                    <i class="fa-solid fa-volume-high text-base md:text-xl"></i>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        backHtml += `<p class="text-gray-600 my-1 md:my-2 text-sm md:text-xl">${trimmedLine}</p>`;
+                    }
+                }
+            });
+            backHtml += `</div>`; 
+
+            document.getElementById('cardBackContent').innerHTML = backHtml;
+        }
+
+        function showCompletionScreen() {
+            document.getElementById('flashcardArea').classList.add('hidden');
+            document.getElementById('flashcardArea').classList.remove('flex');
+            
+            document.getElementById('completionScreen').classList.remove('hidden');
+            document.getElementById('completionScreen').classList.add('flex');
+
+            document.getElementById('finalAgain').innerText = stats.again;
+            document.getElementById('finalHard').innerText = stats.hard;
+            document.getElementById('finalGood').innerText = stats.good;
+            document.getElementById('finalEasy').innerText = stats.easy;
+        }
+
+        function toggleCard() {
+            if (isFlipped) return; 
+            isFlipped = true;
+            document.getElementById('cardInner').classList.add('rotate-y-180');
+        }
+
+        function speakCurrent(event, face) {
+            if (event) event.stopPropagation(); 
+            if (face === 'front') {
+                speakText(reviewQueue[0].word);
+            } else if (face === 'back' && currentBackAudioText) {
+                speakText(currentBackAudioText);
+            }
+        }
+
+        function speakSpecific(event, text) {
+            if (event) event.stopPropagation(); 
+            speakText(text);
+        }
+
+        function speakText(text) {
+            if (!text) return;
+            if (synth.speaking) {
+                synth.cancel(); 
+            }
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.lang = 'ko-KR'; 
+            utterThis.rate = 0.85;    
+            synth.speak(utterThis);
+        }
+    </script>
+</body>
+</html>
