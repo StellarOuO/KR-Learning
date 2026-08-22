@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>韓文單字學習卡 (全平台通用版 - 防出貓)</title>
+    <title>韓文單字學習卡 (全平台通用版 - 章節分類)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -29,12 +29,17 @@
 </head>
 <body class="min-h-screen flex flex-col items-center py-6 md:py-12 px-4 text-gray-800">
 
-    <header class="w-full max-w-3xl flex flex-col md:flex-row justify-between items-center bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 md:mb-8 gap-3 md:gap-4 transition-all">
-        <h1 class="text-xl md:text-2xl font-bold text-indigo-600 flex items-center gap-2 w-full md:w-auto justify-center md:justify-start">
+    <header class="w-full max-w-4xl flex flex-col md:flex-row justify-between items-center bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 md:mb-8 gap-3 md:gap-4 transition-all">
+        <h1 class="text-xl md:text-2xl font-bold text-indigo-600 flex items-center gap-2 w-full md:w-auto justify-center md:justify-start shrink-0">
             <i class="fa-solid fa-layer-group"></i> 單字學習卡 
             <span class="text-[10px] md:text-xs bg-indigo-100 text-indigo-600 px-2 md:px-3 py-1 rounded-full ml-1 whitespace-nowrap">自動存檔中</span>
         </h1>
         <div class="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+            <!-- 新增：章節篩選下拉選單 -->
+            <select id="chapterFilter" onchange="applyChapterFilter()" class="hidden bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 md:py-2.5 rounded-lg font-medium shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm md:text-base cursor-pointer">
+                <option value="all">所有章節</option>
+            </select>
+
             <button id="modeToggleBtn" onclick="toggleMode()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors items-center gap-2 shadow-sm focus:outline-none flex text-sm md:text-base">
                 <i class="fa-solid fa-keyboard"></i> <span id="modeToggleText" class="hidden sm:inline">拼寫模式</span><span class="sm:hidden">拼寫</span>
             </button>
@@ -43,7 +48,7 @@
                 <i class="fa-solid fa-shuffle"></i> <span class="hidden sm:inline">打亂</span>
             </button>
             
-            <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileUpload(event)">
+            <input type="file" id="csvFileInput" accept=".csv,.txt" class="hidden" onchange="handleFileUpload(event)">
             <label for="csvFileInput" class="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm m-0 text-sm md:text-base">
                 <i class="fa-solid fa-file-arrow-up"></i> <span class="hidden sm:inline">匯入 CSV</span><span class="sm:hidden">匯入</span>
             </label>
@@ -64,6 +69,7 @@
                 <li>👉 點擊卡片或按 <kbd class="bg-gray-100 px-1 rounded">Space</kbd> 翻轉</li>
                 <li>🔊 點擊喇叭或按 <kbd class="bg-gray-100 px-1 rounded">Enter</kbd> 朗讀</li>
                 <li>🧠 翻到背面後可用數字鍵 <kbd class="bg-gray-100 px-1 rounded">1</kbd> <kbd class="bg-gray-100 px-1 rounded">2</kbd> <kbd class="bg-gray-100 px-1 rounded">3</kbd> <kbd class="bg-gray-100 px-1 rounded">4</kbd> 快速評分</li>
+                <li>📑 匯入多份檔案後，可透過上方選單切換章節溫習</li>
             </ul>
         </div>
     </div>
@@ -72,8 +78,9 @@
         
         <div class="w-full mb-4 md:mb-8 bg-white p-3 md:p-5 rounded-xl md:rounded-2xl shadow-sm border border-gray-100 transition-all">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-3 md:mb-4 gap-2 text-sm md:text-base font-medium">
-                <span class="text-gray-700 font-bold bg-gray-100 px-3 py-1 rounded-md text-xs md:text-sm">
+                <span class="text-gray-700 font-bold bg-gray-100 px-3 py-1 rounded-md text-xs md:text-sm flex items-center gap-2">
                     剩餘卡片: <span id="progressText" class="text-indigo-600">0 / 0</span>
+                    <span id="currentChapterTag" class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[10px] hidden"></span>
                 </span>
                 <div class="flex flex-wrap justify-center gap-2 text-[10px] md:text-xs">
                     <span class="text-red-500 bg-red-50 px-2 py-1 md:px-3 md:py-1.5 rounded">Again: <span id="statAgain">0</span></span>
@@ -184,6 +191,7 @@
         let currentBackAudioText = ""; 
         const synth = window.speechSynthesis;
         let stats = { again: 0, hard: 0, good: 0, easy: 0 };
+        let currentSelectedChapter = "all"; // 新增：記錄當前選擇的章節
 
         const STORAGE_KEY = 'koreanFlashcardData';
 
@@ -195,7 +203,8 @@
                 originalCards,
                 reviewQueue,
                 stats,
-                isSpellingMode
+                isSpellingMode,
+                currentSelectedChapter
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         }
@@ -210,6 +219,7 @@
                         reviewQueue = state.reviewQueue || [];
                         stats = state.stats || { again: 0, hard: 0, good: 0, easy: 0 };
                         isSpellingMode = state.isSpellingMode || false;
+                        currentSelectedChapter = state.currentSelectedChapter || "all";
 
                         // UI 更新
                         document.getElementById('emptyState').classList.add('hidden');
@@ -219,6 +229,7 @@
                         document.getElementById('clearDataBtn').classList.add('flex');
                         
                         updateModeToggleUI();
+                        updateChapterDropdown();
 
                         if (reviewQueue.length === 0 && originalCards.length > 0) {
                             showCompletionScreen();
@@ -323,16 +334,28 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            // 新增：提取檔案名稱作為預設章節名
+            const defaultChapterName = file.name.replace(/\.[^/.]+$/, "");
+            const chapterName = prompt("請為這批單字輸入章節名稱 (例如: 第一課)：", defaultChapterName);
+            
+            // 如果使用者按取消，則終止匯入
+            if (chapterName === null) {
+                event.target.value = '';
+                return;
+            }
+
+            const finalChapterName = chapterName.trim() || "未分類";
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 const text = e.target.result;
-                parseCSVAndInitialize(text);
+                parseCSVAndInitialize(text, finalChapterName);
                 event.target.value = ''; 
             };
             reader.readAsText(file);
         }
 
-        function parseCSVAndInitialize(text) {
+        function parseCSVAndInitialize(text, chapterName) {
             const result = [];
             let row = [];
             let inQuotes = false;
@@ -359,18 +382,26 @@
 
             const newCards = result.map(item => ({
                 word: item[0].replace(/^"|"$/g, ''),
-                details: item[1].replace(/^"|"$/g, '')
+                details: item[1].replace(/^"|"$/g, ''),
+                chapter: chapterName // 新增章節屬性
             }));
 
             if (newCards.length > 0) {
                 if (originalCards.length > 0) {
                     originalCards = [...originalCards, ...newCards];
-                    reviewQueue = [...reviewQueue, ...newCards];
-                    alert(`✅ 成功追加 ${newCards.length} 個新單字！\n目前待複習總數變為 ${reviewQueue.length} 個。`);
+                    
+                    // 如果目前正在溫習「所有章節」，就將新卡片加入隊列
+                    if (currentSelectedChapter === 'all' || currentSelectedChapter === chapterName) {
+                        reviewQueue = [...reviewQueue, ...newCards];
+                    }
+                    
+                    alert(`✅ 成功追加 ${newCards.length} 個新單字到「${chapterName}」！`);
+                    updateChapterDropdown();
                     saveState(); 
-                    updateCard();
+                    if (reviewQueue.length > 0) updateCard();
                 } else {
                     originalCards = newCards;
+                    currentSelectedChapter = "all";
                     
                     document.getElementById('emptyState').classList.add('hidden');
                     document.getElementById('shuffleBtn').classList.remove('hidden');
@@ -378,11 +409,44 @@
                     document.getElementById('clearDataBtn').classList.remove('hidden');
                     document.getElementById('clearDataBtn').classList.add('flex');
                     
+                    updateChapterDropdown();
                     startReview(); 
                 }
             } else {
                 alert("無法解析檔案內容，請確認是否為正確的 CSV 格式。");
             }
+        }
+
+        // 新增：更新章節下拉選單
+        function updateChapterDropdown() {
+            const select = document.getElementById('chapterFilter');
+            // 提取所有不重複的章節名稱 (處理舊存檔沒有 chapter 屬性的情況)
+            const chapters = [...new Set(originalCards.map(c => c.chapter || "未分類"))];
+            
+            if (chapters.length > 0) {
+                select.classList.remove('hidden');
+                
+                let html = '<option value="all">所有章節</option>';
+                chapters.forEach(chap => {
+                    html += `<option value="${chap}">${chap}</option>`;
+                });
+                select.innerHTML = html;
+                
+                // 恢復之前選定的章節
+                if (chapters.includes(currentSelectedChapter) || currentSelectedChapter === 'all') {
+                    select.value = currentSelectedChapter;
+                } else {
+                    select.value = 'all';
+                    currentSelectedChapter = 'all';
+                }
+            }
+        }
+
+        // 新增：處理章節切換
+        function applyChapterFilter() {
+            const select = document.getElementById('chapterFilter');
+            currentSelectedChapter = select.value;
+            startReview(); // 切換章節時重新開始該章節的複習
         }
 
         function shuffleCards() {
@@ -404,7 +468,13 @@
         }
 
         function startReview() {
-            reviewQueue = [...originalCards]; 
+            // 根據選定的章節過濾卡片
+            if (currentSelectedChapter === 'all') {
+                reviewQueue = [...originalCards];
+            } else {
+                reviewQueue = originalCards.filter(c => (c.chapter || "未分類") === currentSelectedChapter);
+            }
+            
             stats = { again: 0, hard: 0, good: 0, easy: 0 };
             isFlipped = false;
             document.getElementById('cardInner').classList.remove('rotate-y-180');
@@ -453,16 +523,35 @@
         }
 
         function updateCard() {
-            const total = originalCards.length;
+            // 計算目前章節的總卡片數
+            let total = 0;
+            if (currentSelectedChapter === 'all') {
+                total = originalCards.length;
+            } else {
+                total = originalCards.filter(c => (c.chapter || "未分類") === currentSelectedChapter).length;
+            }
+            
             const remaining = reviewQueue.length;
 
             document.getElementById('progressText').innerText = `${remaining} / ${total}`;
+            
+            // 顯示當前章節標籤
+            const tagEl = document.getElementById('currentChapterTag');
+            if (currentSelectedChapter !== 'all') {
+                tagEl.innerText = currentSelectedChapter;
+                tagEl.classList.remove('hidden');
+                tagEl.classList.add('inline-block');
+            } else {
+                tagEl.classList.add('hidden');
+                tagEl.classList.remove('inline-block');
+            }
+
             document.getElementById('statAgain').innerText = stats.again;
             document.getElementById('statHard').innerText = stats.hard;
             document.getElementById('statGood').innerText = stats.good;
             document.getElementById('statEasy').innerText = stats.easy;
 
-            const progressPercent = ((total - remaining) / total) * 100;
+            const progressPercent = total === 0 ? 0 : ((total - remaining) / total) * 100;
             document.getElementById('progressBar').style.width = `${progressPercent}%`;
 
             if (remaining === 0) {
@@ -478,9 +567,6 @@
                 document.getElementById('spellingUI').classList.add('flex');
                 
                 let firstLine = card.details.split(/\r?\n/)[0].trim();
-                
-                // 【防出貓機制】將個正確答案由提示度抽走！
-                // 例如：原本係 "사진 (n.) 照片"，抽走 "사진" 之後就會變成 "(n.) 照片"
                 let safeHint = firstLine.replace(card.word, '').trim();
                 
                 document.getElementById('spellMeaning').innerText = safeHint;
