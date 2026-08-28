@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>韓文單字學習卡 (全平台通用版 - 章節分類 + 刪除功能)</title>
+    <title>韓文單字學習卡 (全平台通用版 - 章節分類 + 刪除功能修正版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -33,7 +33,6 @@
         </h1>
         <div class="flex flex-wrap justify-center gap-2 w-full md:w-auto">
             
-            <!-- 章節控制區塊 (包含下拉選單與刪除章節按鈕) -->
             <div id="chapterControlGroup" class="hidden items-center gap-1">
                 <select id="chapterFilter" onchange="applyChapterFilter()" class="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 md:py-2.5 rounded-lg font-medium shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm md:text-base cursor-pointer">
                     <option value="all">所有章節</option>
@@ -89,8 +88,9 @@
         <div class="w-full h-[55vh] min-h-[380px] max-h-[500px] md:h-[550px] md:max-h-none perspective-1000 cursor-pointer" onclick="toggleCard()">
             <div id="cardInner" class="relative w-full h-full transform-style-3d transition-transform-700 shadow-xl rounded-2xl md:rounded-[2rem]">
                 
-                <div class="absolute w-full h-full backface-hidden bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col items-center justify-center p-6 md:p-12 relative">
-                    <button onclick="deleteCurrentCard(event)" class="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-red-50 text-red-400 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm focus:outline-none" title="刪除此卡片">
+                <!-- 卡片正面 (移除了 relative 修正排版) -->
+                <div class="absolute w-full h-full backface-hidden bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col items-center justify-center p-6 md:p-12">
+                    <button onclick="deleteCurrentCard(event)" class="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-red-50 text-red-400 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm focus:outline-none z-20" title="刪除此卡片">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
 
@@ -125,7 +125,8 @@
                     </div>
                 </div>
 
-                <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col p-4 md:p-8 cursor-default relative" onclick="event.stopPropagation()">
+                <!-- 卡片背面 (移除了 relative 修正排版) -->
+                <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 flex flex-col p-4 md:p-8 cursor-default" onclick="event.stopPropagation()">
                     <button onclick="deleteCurrentCard(event)" class="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-red-50 text-red-400 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm focus:outline-none z-20" title="刪除此卡片">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
@@ -253,7 +254,6 @@
             }
         }
 
-        // 刪除整個章節
         function deleteCurrentChapter() {
             if (currentSelectedChapter === 'all') return;
             
